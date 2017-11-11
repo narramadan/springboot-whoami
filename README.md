@@ -23,3 +23,15 @@ Create Docker image using the provided dockerfile
 Command
 
     Docker build -t springboot-whoami .
+
+Spin up two containers to test run the application
+	
+	Docker run -it -p 8080:8080 --name whoami0 springboot-whoami
+	
+	Docker run -it -p 8090:8080 --name whoami1 springboot-whoami
+	
+Accessing the application using https://localhost:8080 and https://localhost:8090 will display the container id next to 'Who Am I'
+
+![Output](/resources/output.jpg?raw=true "Output")
+
+![Containers](/resources/containers.jpg?raw=true "Containers")
