@@ -128,7 +128,7 @@ Running ``` docker ps -a ``` on Manager, Worker 1 & Worker 2 nodes will show the
 
 Upon refreshing the browser, we don't see the container id changing. This is due to rounting mesh algorithm on ingress network. The swarm load balancer routes your request to any of the active container.
 
-Wait for 5 minutes and refresh the browser. You can see swarm has routed to other container.
+Wait for 2-3 minutes and refresh the browser. You can see swarm has routed to other container.
 
 External load balancer such as ```nginx``` or ```traefik``` can be configured to achive roundroubin routing.
 
@@ -151,7 +151,7 @@ CONTAINER ID        IMAGE                                 COMMAND               
 
 To ***scale down*** the service, run ``` docker service scale whoami=3``` to remove 3 containers evenly across the nodes.
 
-**Publish image updates on swarm nodes**
+**Rolling image updates on swarm nodes**
 Any code changes done to whoami should be applied to all the swarm nodes. This can be achievable by running the below command on Manager node.
 
 ```
@@ -178,6 +178,88 @@ Run the below command to remove the service from swarm.
 
 Running this will take few seconds to clean up the containers across the nodes.
 
+# Load Balancing Swarm nodes with HAproxy reverse proxy
+
 # Load Balancing Swarm nodes with nginx reverse proxy
 
 # Load Balancing Swarm nodes with traefik reverse proxy
+
+To get started with Traefik, run the below command to create an overlay network to use for the services.
+```
+$ docker network create --driver=overlay traefik-net
+```
+Inspecting the network using ```docker network inspect traefik-net``` will show no containers as we haven't configured any container to use this network.
+
+Run the below command to attach this network to new service
+```
+$ docker service create \
+    --replicas 3 \
+    --name whoami \
+    --label traefik.port=8080 \
+    --label traefik.docker.network=traefik-net \
+    --network traefik-net \
+    --publish 8080:8080 \
+    narramadan/springboot-whoami
+```
+
+Run the below command to attach this network to already running service
+```
+$ docker service update \
+    --label-add traefik.port=8080 \
+    --label-add traefik.docker.network=traefik-net \
+    --network-add traefik-net \
+    whoami
+```
+
+* ```--label traefik.port=8080``` Specific traefik to connect to containers 8080 port
+* ```--label traefik.docker.network=traefik-net``` Set the docker network to use for connections to this container. With swarm mode, ingress network is attached by default and we are attaching traefik-net to the container. If both these exists and ```traefik.docker.network``` not set will result in ```Gateway Timeout``` error.
+
+**Deploy Traefik**
+
+Refer to detailed notes using ```docker-machine``` [here](https://docs.traefik.io/user-guide/swarm-mode/)
+
+For Traefik to work in swarm mode, Traefik should run on Manager node.
+
+Run on the below command on either of the nodes. Setting ```--constraint=node.role==manager``` will ensure to have this service created on Manager node only.
+```
+$ docker service create \
+    --name traefik \
+    --constraint=node.role==manager \
+    --publish 80:80 --publish 90:8080 \
+    --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
+    --network traefik-net \
+    traefik \
+    --docker \
+    --docker.swarmmode \
+    --docker.domain=traefik \
+    --docker.watch \
+    --logLevel=DEBUG \
+    --web
+```
+* Port 80 and 90 are published on the cluster. 
+* --web - Traefik webui is activated on port 90 (As we have WhoAmI port published on 8080, Traefik WebUI is set to port 90)
+* --network traefik-net - The same network is attach the Traefik service and WhoAmI service
+* --mount - mount the docker socket where Træfik is scheduled to be able to speak to the daemon.
+
+Running ```Docker service ls``` will show two services started ```whoamI``` and ```traefik```.
+
+Run the below command to update logLevel for running traefik service
+```
+$ docker service update --args --logLevel=DEBUG traefik
+```
+
+**Testing WhoAmI with Traefik Reverse Proxy**
+
+Accessing Traefik dashboard will display 3 frontends & 1 backend created.
+
+![Traefik Dashboard](/resources/traefik-dashboard.jpg?raw=true "Traefik Dashboard")
+
+As observed for frontend pod, the rule is defined for Host header ```Host:whoami.traefik```. This header should be set when we request traefik on manager node with 80 port.
+
+On chrome browser, I added extension ```ModHeader``` and added request header Host = whoami.traefik. Accessing the application using ec2 public DNS http://ec2-xx-xx-xxx-xxx.ap-southeast-1.compute.amazonaws.com/ should display the container id next to 'Who Am I'.
+
+Refreshing the browser will invoke each container in round-robin fashion and display respective container id. This was not the case when we relied on swarn default load balancing. We had to wait atleat 2-3 minutes for it to work.
+
+![WhoAmI service Containers](/resources/whoami-service-containers.jpg?raw=true "WhoAmI service Containers")
+
+![WhoAmiI Traefik Round-Robin](/resources/whoami-traefik-roundrobin.jpg?raw=true "WhoAmiI Traefik Round-Robin")
