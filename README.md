@@ -178,10 +178,6 @@ Run the below command to remove the service from swarm.
 
 Running this will take few seconds to clean up the containers across the nodes.
 
-# Load Balancing Swarm nodes with HAproxy reverse proxy
-
-# Load Balancing Swarm nodes with nginx reverse proxy
-
 # Load Balancing Swarm nodes with traefik reverse proxy
 
 To get started with Traefik, run the below command to create an overlay network to use for the services.
@@ -263,3 +259,9 @@ Refreshing the browser will invoke each container in round-robin fashion and dis
 ![WhoAmI service Containers](/resources/whoami-service-containers.jpg?raw=true "WhoAmI service Containers")
 
 ![WhoAmiI Traefik Round-Robin](/resources/whoami-traefik-roundrobin.jpg?raw=true "WhoAmiI Traefik Round-Robin")
+
+# Load Balancing Swarm nodes with HAproxy reverse proxy
+***TODO***
+
+# Load Balancing Swarm nodes with nginx reverse proxy
+***TODO***
