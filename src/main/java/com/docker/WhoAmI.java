@@ -57,10 +57,17 @@ public class WhoAmI {
             }
         }
 
+        // Handling UnknownHostException: name or service not known
+        String hostName;
+        try {
+            hostName = InetAddress.getLocalHost().getHostName();
+        }
+        catch(Exception e) {
+            hostName = e.getMessage().split(":")[0];
+        }
+
         return
-            "<div style=\"text-align:center;\"><h1>Who Am I - "
-                +InetAddress.getLocalHost().getHostName()
-            +"</h1></div>"
+            "<div style=\"text-align:center;\"><h1>Who Am I - "+hostName+"</h1></div>"
             +"<div style=\"margin-left:10%\">"
                 +builder.toString()
             +"</div>";
