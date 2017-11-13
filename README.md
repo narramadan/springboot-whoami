@@ -51,12 +51,12 @@ Accessing the application using https://localhost:8080 and https://localhost:809
 To test springboot-whoami on Docker with Swarm Mode, provision 3 server instances with docker installed. Of the 3 server instances, one will act as Manager and the rest as Workers.
 
 **Provisioning Servers on AWS**
-1. Launch 'Ubuntu Server 16.04 LTS (HVM), SSD Volume Type - ami-67a6e604' with 't2.micro' for this test run.
-2. Choose 3 instances and proceed to 'Security Group' configuration.
+1. Launch `Ubuntu Server 16.04 LTS (HVM), SSD Volume Type - ami-67a6e604` with `t2.micro` for this test run.
+2. Choose 3 instances and proceed to `Security Group` configuration.
 3. Below ports must be added for the docker engines to communicate in swarm mode
-* TCP port 2377 for cluster management communications
-* TCP and UDP port 7946 for communication among nodes
-* UDP port 4789 for overlay network traffic
+* `TCP` port `2377` for cluster management communications
+* `TCP` and `UDP` port `7946` for communication among nodes
+* `UDP` port `4789` for overlay network traffic
 
 **Install Docker**
 Follow the [instructions](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-using-the-repository) provided to add docker repository to download and install docker.
@@ -104,7 +104,7 @@ $ docker rm 3af3
 ```
 
 **Creating Swarm Cluster**
-Identify the IP address of the instance which should run as Manager node. use command ``` ifconfig ``` to get the IP Address of the instance.
+Identify the IP address of the instance which should run as Manager node. use command `ifconfig` to get the IP Address of the instance.
 
 Run the below command to initialize swarm cluster:
 ```
@@ -116,7 +116,7 @@ This would return swarm join command which should be executed on the 2 worker no
 $ docker swarm join --token SWMTKN-1-0ayszwbf4fthuztfs127i9s5suc4lmkzjrz0p7vfrn5qgrzj66-bth68isnr9olw88orzpy611pj 172.31.0.30:2377
 ```
 
-Running ```docker node ls``` will list down all the nodes and of the 3 nodes one will be marked as 'Leader ' under Manager Status.
+Running `docker node ls` will list down all the nodes and of the 3 nodes one will be marked as `Leader` under Manager Status.
 
 **Deploying WhoAmI service to Swarm**
 
@@ -131,21 +131,21 @@ ID                  NAME                MODE                REPLICAS            
 vxleib8t4xqr        whoami              replicated          3/3                 narramadan/springboot-whoami:latest   *:8080->8080/tcp
 ```
 
-Run ``` docker service logs <ID> ``` on the Manager node to see if the service has started successfully without any errors.
+Run `docker service logs <ID>` on the Manager node to see if the service has started successfully without any errors.
 
-Running ``` docker ps -a ``` on Manager, Worker 1 & Worker 2 nodes will show the list of running containers
+Running `docker ps -a` on Manager, Worker 1 & Worker 2 nodes will show the list of running containers
 
 **Testing WhoAmI on created swarm service**
 
-```ingress``` network is used whenever a swarm is initialized. This will do automatic load balancing among all the service nodes. When a request is sent to any of the node server on 8080, one of the node in the cluster will process the request and its container id is displayed in browser. 
+[`Ingress`](https://en.wikipedia.org/wiki/Ingress_filtering) network is used whenever a swarm is initialized. This will do automatic load balancing among all the service nodes. When a request is sent to any of the node server on 8080, one of the node in the cluster will process the request and its container id is displayed in browser. 
 
 Upon refreshing the browser, we don't see the container id changing. This is due to rounting mesh algorithm on ingress network. The swarm load balancer routes your request to any of the active container.
 
 Wait for 2-3 minutes and refresh the browser. You can see swarm has routed to other container.
 
-External load balancer such as ```nginx``` or ```traefik``` can be configured to achive roundroubin routing.
+External load balancer such as `nginx` or `traefik` can be configured to achive roundroubin routing.
 
-More information on ```ingress``` and its routing mesh can be found [here](https://docs.docker.com/engine/swarm/ingress/)
+More information on `ingress` and its routing mesh can be found [here](https://docs.docker.com/engine/swarm/ingress/)
 
 **Scale the Service Up or Down**
 
@@ -161,7 +161,7 @@ ID                  NAME                MODE                REPLICAS            
 vxleib8t4xqr        whoami              replicated          6/6                 narramadan/springboot-whoami:latest   *:8080->8080/tcp
 ```
 
-To ***scale down*** the service, run ``` docker service scale whoami=3``` to remove 3 containers evenly across the nodes.
+To ***scale down*** the service, run `docker service scale whoami=3` to remove 3 containers evenly across the nodes.
 
 **Rolling image updates on swarm nodes**
 Any code changes done to whoami should be rolled to all the swarm nodes. This can be achievable by running the below command on Manager node.
@@ -186,7 +186,9 @@ PS C:\Work> docker push narramadan/springboot-whoami
 
 Run the below command to remove the service from swarm. 
 
-```$ docker service rm whoami```
+```
+$ docker service rm whoami
+```
 
 Running this will take few seconds to clean up the containers across the nodes.
 
@@ -197,7 +199,7 @@ To get started with Traefik, run the below command to create an overlay network 
 $ docker network create --driver=overlay traefik-net
 ```
 
-Inspecting the network using ```docker network inspect traefik-net``` will show no containers as we haven't configured any container to use this network.
+Inspecting the network using `docker network inspect traefik-net` will show no containers as we haven't configured any container to use this network.
 
 Run the below command to attach this network to new service
 ```
@@ -220,16 +222,16 @@ $ docker service update \
     whoami
 ```
 
-* ```--label traefik.port=8080``` Specific traefik to connect to containers 8080 port
-* ```--label traefik.docker.network=traefik-net``` Set the docker network to use for connections to this container. With swarm mode, ingress network is attached by default and we are attaching traefik-net to the container. If both these exists and ```traefik.docker.network``` not set will result in ```Gateway Timeout``` error.
+* `--label traefik.port=8080` Specific traefik to connect to containers 8080 port
+* `--label traefik.docker.network=traefik-net` Set the docker network to use for connections to this container. With swarm mode, ingress network is attached by default and we are attaching traefik-net to the container. If both these exists and `traefik.docker.network` not set will result in `Gateway Timeout` error.
 
 **Deploy Traefik**
 
-Refer to detailed notes using ```docker-machine``` [here](https://docs.traefik.io/user-guide/swarm-mode/)
+Refer to detailed notes using `docker-machine` [here](https://docs.traefik.io/user-guide/swarm-mode/)
 
 For Traefik to work in swarm mode, Traefik should run on Manager node.
 
-Run on the below command on either of the nodes. Setting ```--constraint=node.role==manager``` will ensure to have this service created on Manager node only.
+Run on the below command on either of the nodes. Setting `--constraint=node.role==manager` will ensure to have this service created on Manager node only.
 ```
 $ docker service create \
     --name traefik \
@@ -250,7 +252,7 @@ $ docker service create \
 * --network traefik-net - The same network is attach the Traefik service and WhoAmI service
 * --mount - mount the docker socket where Træfik is scheduled to be able to speak to the daemon.
 
-Running ```Docker service ls``` will show two services started ```whoamI``` and ```traefik```.
+Running `Docker service ls` will show two services started `whoamI` and `traefik`.
 
 Run the below command to update logLevel for running traefik service
 ```
@@ -263,9 +265,9 @@ Accessing Traefik dashboard will display 3 frontends & 1 backend created.
 
 ![Traefik Dashboard](/resources/traefik-dashboard.jpg?raw=true "Traefik Dashboard")
 
-As observed for frontend pod, the rule is defined for Host header ```Host:whoami.traefik```. This header should be set when we request traefik on manager node with 80 port.
+As observed for frontend pod, the rule is defined for Host header `Host:whoami.traefik`. This header should be set when we request traefik on manager node with 80 port.
 
-On chrome browser, I added extension ```ModHeader``` and added request header Host = whoami.traefik. Accessing the application using ec2 public DNS http://ec2-xx-xx-xxx-xxx.ap-southeast-1.compute.amazonaws.com/ should display the container id next to 'Who Am I'.
+On chrome browser, I added extension `ModHeader` and added request header Host = whoami.traefik. Accessing the application using ec2 public DNS http://ec2-xx-xx-xxx-xxx.ap-southeast-1.compute.amazonaws.com/ should display the container id next to 'Who Am I'.
 
 Refreshing the browser will invoke each container in round-robin fashion and display respective container id. This was not the case when we relied on swarn default load balancing. We had to wait atleat 2-3 minutes for it to work.
 

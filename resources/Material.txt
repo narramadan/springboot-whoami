@@ -1,0 +1,5 @@
+---------------------
+--- Using Terraform to spin EC2 Instances - series
+---------------------
+1. http://www.blog.labouardy.com/manage-aws-infrastracture-as-code-with-terraform/
+2. 
