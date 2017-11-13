@@ -1,4 +1,4 @@
-# Automating `Who Am I` with `Traefik Reverse Proxy` on `Docker Swarm` with `Terraform` & `Ansible`
+# Automating with `Terraform` & `Ansible` 
 
 Sought inspiration for this section from [`here`](http://www.labouardy.com/setup-docker-swarm-on-aws-using-ansible-terraform/)
 
@@ -241,7 +241,7 @@ Verify the scripts plan before applying changes on AWS
 $ terraform plan
 ```
 Review the Instances, Security Group, Key Name etc...
-<script src="https://gist.github.com/narramadan/eead55064f8aff890eecd39caa4b311e.js"></script>
+**Gist** - https://gist.github.com/narramadan/eead55064f8aff890eecd39caa4b311e
 
 #### Apply Terraform scripts
 Apply the changes by issuing the below command.
@@ -261,4 +261,4 @@ $ terraform destroy
 ```
 Terraform will terminate spinned ec2 instances, Storage Groups,Key Pairs and other associations as per plan defined
 
-<script src="https://gist.github.com/narramadan/2d623a5a2d322573fc9e42f1bb2014ea.js"></script>
+**Gist** - https://gist.github.com/narramadan/2d623a5a2d322573fc9e42f1bb2014ea
