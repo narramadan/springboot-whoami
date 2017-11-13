@@ -1,35 +1,46 @@
 Who Am I
 ========
-Spring-boot web application to display host name and system resources. Specifically created to create docker image and use it to test Reverse Proxy capabilities of [Traefik](https://traefik.io/) with [Docker Swarm](https://docs.docker.com/engine/swarm/)
+Spring-boot web application to display containers host name and system resources. Specifically created to test [Docker Swarm](https://docs.docker.com/engine/swarm/) with [Traefik](https://traefik.io/) Reverse Proxy capabilities.
 
 ----------
 
 Usage
 -----
 Clone the repository and run the below command to create springboot-whoami.jar
-
-    gradle clean build
+```
+PS C:\Work> gradle clean build
+```
 
 Create Docker image using the provided dockerfile
-
-    FROM openjdk:8
+```
+FROM openjdk:8
     
-    MAINTAINER Madan Narra <narra.madan@outlook.com>
+MAINTAINER Madan Narra <narra.madan@outlook.com>
     
-	COPY ./build/libs/spring-boot-whoami.jar spring-boot-whoami.jar
+COPY ./build/libs/spring-boot-whoami.jar spring-boot-whoami.jar
 	
-	CMD java -jar spring-boot-whoami.jar
+CMD java -jar spring-boot-whoami.jar
 
-Command
+```
+Command to create docker image
+```
+PS C:\Work> Docker build -t springboot-whoami .
+```
 
-    Docker build -t springboot-whoami .
+Push the image to docker hub
+```
+PS C:\Work> docker tag springboot-whoami narramadan/springboot-whoami
 
-Spin up two containers to test run the application
+PS C:\Work> docker push narramadan/springboot-whoami
+```
+
+Spin up two containers to test run the application on your development environment
+```
+PS C:\Work> Docker run -it -p 8080:8080 --name whoami0 springboot-whoami
 	
-	Docker run -it -p 8080:8080 --name whoami0 springboot-whoami
-	
-	Docker run -it -p 8090:8080 --name whoami1 springboot-whoami
-	
+PS C:\Work> Docker run -it -p 8090:8080 --name whoami1 springboot-whoami
+```
+
 Accessing the application using https://localhost:8080 and https://localhost:8090 will display the container id next to 'Who Am I'
 
 ![Output](/resources/output.jpg?raw=true "Output")
@@ -37,7 +48,7 @@ Accessing the application using https://localhost:8080 and https://localhost:809
 ![Containers](/resources/containers.jpg?raw=true "Containers")
 
 # Testing with Swarm mode cluster
-To test springboot-whoami on Swarm mode cluster, provision 3 server instances with docker installed. Of the 3 server instances, one will act as Manager and the rest as Workers.
+To test springboot-whoami on Docker with Swarm Mode, provision 3 server instances with docker installed. Of the 3 server instances, one will act as Manager and the rest as Workers.
 
 **Provisioning Servers on AWS**
 1. Launch 'Ubuntu Server 16.04 LTS (HVM), SSD Volume Type - ami-67a6e604' with 't2.micro' for this test run.
@@ -48,7 +59,7 @@ To test springboot-whoami on Swarm mode cluster, provision 3 server instances wi
 * UDP port 4789 for overlay network traffic
 
 **Install Docker**
-Follow the [instructions](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-using-the-repository) provided to add docker repository . Install and update docker from the repository.
+Follow the [instructions](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-using-the-repository) provided to add docker repository to download and install docker.
 
 Update the apt package index.
 ```
@@ -60,7 +71,7 @@ Install the latest version of Docker CE, or go to the next step to install a spe
 $ sudo apt-get install docker-ce
 ```
 
-To run docker without sudo, run the below command and then completely log out of your account and log back in.
+Run the below command on all the 3 instances to run docker without sudo. Post execution, completely log out of your account and log back in.
 ```
 $ sudo usermod -a -G docker $USER 
 ```
@@ -71,7 +82,7 @@ $ docker info
 ```
 
 **Test run springboot-whoami**
-Before proceeding to testing whoami on swarm mode, test run the image by spinning a container on one of the server
+Before proceeding to test whoami on swarm mode, verify the image by spinning a container on one of the server.
 
 ```
 $ docker pull narramadan/springboot-whoami
@@ -84,7 +95,7 @@ Accessing the application using ec2 public DNS http://ec2-xx-xx-xxx-xxx.ap-south
 Who Am I - 3af3b374ded7
 ```
 
-Stop the container and remove the container reference before proceeding to Swarn mode testing
+Stop the container and remove its reference before proceeding to configure Docker Swarn Mode
 
 ```
 $ docker stop 3a
@@ -93,25 +104,27 @@ $ docker rm 3af3
 ```
 
 **Creating Swarm Cluster**
-SSH to machine which should run as Manager node and run the below command ``` ifconfig ``` to get the IP Address of the machine.
+Identify the IP address of the instance which should run as Manager node. use command ``` ifconfig ``` to get the IP Address of the instance.
 
-Run the below command to create a new swarm:
+Run the below command to initialize swarm cluster:
 ```
 $ docker swarm init --advertise-addr <MANAGER-IP> 
 ```
-This would return swarm join command which should be executed on the worker node machines
+
+This would return swarm join command which should be executed on the 2 worker node machines
 ```
 $ docker swarm join --token SWMTKN-1-0ayszwbf4fthuztfs127i9s5suc4lmkzjrz0p7vfrn5qgrzj66-bth68isnr9olw88orzpy611pj 172.31.0.30:2377
 ```
 
-Running ```docker node ls``` will list down all the nodes and one being marked as 'Leader ' under Manager Status.
+Running ```docker node ls``` will list down all the nodes and of the 3 nodes one will be marked as 'Leader ' under Manager Status.
 
 **Deploying WhoAmI service to Swarm**
 
-Run the below command on the Manager node to deploy 3 whoamI image to the swarm. Manager node will distribute them evenly to all the three nodes
+Run the below command on the Manager node to deploy 3 whoamI image in the swarm. Manager node will distribute them evenly to all the three nodes
 ```
 $ docker service create --replicas 3 --name whoami --publish 8080:8080 narramadan/springboot-whoami
 ```
+
 Run ``` docker service ls``` to see the list of running services
 ```
 ID                  NAME                MODE                REPLICAS            IMAGE                                 PORTS
@@ -144,15 +157,14 @@ whoami scaled to 6
 ```
 
 ```
-ubuntu@ip-172-31-8-139:~$ docker ps -a
-CONTAINER ID        IMAGE                                 COMMAND                  CREATED             STATUS              PORTS               NAMES
-53b12845a328        narramadan/springboot-whoami:latest   "/bin/sh -c 'java ..."   34 minutes ago      Up 34 minutes                           whoami.1.vcgje0yylqne8ujgfnswvdxca
+ID                  NAME                MODE                REPLICAS            IMAGE                                 PORTS
+vxleib8t4xqr        whoami              replicated          6/6                 narramadan/springboot-whoami:latest   *:8080->8080/tcp
 ```
 
 To ***scale down*** the service, run ``` docker service scale whoami=3``` to remove 3 containers evenly across the nodes.
 
 **Rolling image updates on swarm nodes**
-Any code changes done to whoami should be applied to all the swarm nodes. This can be achievable by running the below command on Manager node.
+Any code changes done to whoami should be rolled to all the swarm nodes. This can be achievable by running the below command on Manager node.
 
 ```
 $ docker service update --image narramadan/springboot-whoami whoami
@@ -184,6 +196,7 @@ To get started with Traefik, run the below command to create an overlay network 
 ```
 $ docker network create --driver=overlay traefik-net
 ```
+
 Inspecting the network using ```docker network inspect traefik-net``` will show no containers as we haven't configured any container to use this network.
 
 Run the below command to attach this network to new service
@@ -259,9 +272,3 @@ Refreshing the browser will invoke each container in round-robin fashion and dis
 ![WhoAmI service Containers](/resources/whoami-service-containers.jpg?raw=true "WhoAmI service Containers")
 
 ![WhoAmiI Traefik Round-Robin](/resources/whoami-traefik-roundrobin.jpg?raw=true "WhoAmiI Traefik Round-Robin")
-
-# Load Balancing Swarm nodes with HAproxy reverse proxy
-***TODO***
-
-# Load Balancing Swarm nodes with nginx reverse proxy
-***TODO***
