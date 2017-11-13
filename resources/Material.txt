@@ -1,5 +1,6 @@
 ---------------------
---- Using Terraform to spin EC2 Instances - series
+--- Using Terraform to spin EC2 Instances & Ansible to configure - series
 ---------------------
 1. http://www.blog.labouardy.com/manage-aws-infrastracture-as-code-with-terraform/
-2. 
+2. http://www.blog.labouardy.com/manage-aws-vpc-as-infrastructure-as-code-with-terraform/
+3. http://www.labouardy.com/setup-docker-swarm-on-aws-using-ansible-terraform/

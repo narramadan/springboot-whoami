@@ -47,7 +47,7 @@ Accessing the application using https://localhost:8080 and https://localhost:809
 
 ![Containers](/resources/containers.jpg?raw=true "Containers")
 
-# Testing with Swarm mode cluster
+# Testing `Who Am I` with `Docker Swarm`
 To test springboot-whoami on Docker with Swarm Mode, provision 3 server instances with docker installed. Of the 3 server instances, one will act as Manager and the rest as Workers.
 
 **Provisioning Servers on AWS**
@@ -145,7 +145,7 @@ Wait for 2-3 minutes and refresh the browser. You can see swarm has routed to ot
 
 External load balancer such as `nginx` or `traefik` can be configured to achive roundroubin routing.
 
-More information on `ingress` and its routing mesh can be found [here](https://docs.docker.com/engine/swarm/ingress/)
+More information on `ingress` and its routing mesh can be found [`here`](https://docs.docker.com/engine/swarm/ingress/)
 
 **Scale the Service Up or Down**
 
@@ -227,7 +227,7 @@ $ docker service update \
 
 **Deploy Traefik**
 
-Refer to detailed notes using `docker-machine` [here](https://docs.traefik.io/user-guide/swarm-mode/)
+Refer to detailed notes using [`docker-machine`](https://docs.traefik.io/user-guide/swarm-mode/)
 
 For Traefik to work in swarm mode, Traefik should run on Manager node.
 
@@ -274,3 +274,10 @@ Refreshing the browser will invoke each container in round-robin fashion and dis
 ![WhoAmI service Containers](/resources/whoami-service-containers.jpg?raw=true "WhoAmI service Containers")
 
 ![WhoAmiI Traefik Round-Robin](/resources/whoami-traefik-roundrobin.jpg?raw=true "WhoAmiI Traefik Round-Robin")
+
+**Lets Encrypt Integration**
+***TODO***
+
+# Automating `Who Am I` with `Traefik Reverse Proxy` on `Docker Swarm` with `Terraform` & `Ansible`
+
+Readme available under `automation` folder
