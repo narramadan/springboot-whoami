@@ -4,3 +4,10 @@
 1. http://www.blog.labouardy.com/manage-aws-infrastracture-as-code-with-terraform/
 2. http://www.blog.labouardy.com/manage-aws-vpc-as-infrastructure-as-code-with-terraform/
 3. http://www.labouardy.com/setup-docker-swarm-on-aws-using-ansible-terraform/
+
+>>>>https://github.com/jekyll/jekyll/wiki/sites
+https://kaunteya.github.io/
+http://himsel.me/
+
+https://linuxacademy.com/howtoguides/posts/show/topic/13750-managing-docker-containers-with-ansible
+https://gist.github.com/clems4ever/f033bc3806891d9ef2449e471cbfeb2a

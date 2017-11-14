@@ -25,7 +25,7 @@ PS C:\> docker port terraform-ansible 22
 // SSH to root@localhost on 32768 with password root
 ```
 
-Run the below commands to install Terraform
+###Run the below commands to install Terraform
 ```
 // Get updates and install unzip
 $ apt-get update
@@ -52,7 +52,7 @@ $ terraform
 Notes
 > `~/opt` is a directory for installing unbundled packages, each one in its own subdirectory
 
-Run the below commands to install Ansible
+###Run the below commands to install Ansible
 ```
 $ apt-get update
 $ apt-get -y install software-properties-common
@@ -251,8 +251,81 @@ $ terraform apply
 Upon successful completion, login to AWS Console and verify instances spinned, Key Name & Security Group created.
 
 ## Prepare Ansible scripts to spin Docker Swarm with Traefik & Who Am I services
+To ensure Ansible setup is working as expected, try to run few adhoc queries before proceeding with the setting up Ansible scripts to spin docker swarm on created cluster.
+
+* `Setup SSH Agent for execution` - This will eliminate retyping password for SSH authetication each time we try to connect to our remote hosts
+```
+$ ssh-agent bash
+$ ssh-add ~/.ssh/terraform-ec2.pem
+```
+> Provide phassphrase when promoted.
+
+* `Add default configurations` - Set some default options globally in 'ansible.cfg' file. This file can be placed with the `same folder` from which ansible is being invoked or under `/etc/ansible/ansible.cfg` for system or user level or under `~/.ansible.cfg` file.
+```
+$ vi ansible.cfg
+
+[defaults]
+host_key_checking = False
+```
+
+* `Create hosts file` - To test run with some adhoc commands, provide IP address of few machines. Login to ec2 console and get the public IPs of the cluster nodes that are provisioned through Terraform. Add them to hosts in a folder from which ansible is being invoked and add the text as specified.
+```
+$ vi hosts
+
+[swarm-hosts]
+xxx.221.xxx.126
+54.xxx.147.xxx
+54.251.188.xxx
+
+[swarm-hosts:vars]
+ansible_python_interpreter=/usr/bin/python3
+```
+> As there are more python instances installed on my machine, ansible is unable to predict which one to choose for execution. Setting `ansible_python_interpreter` will consider the specific python to use when executing ansible commands.
+
+* `Ping your nodes` - Run the below query to ping the nodes configured in host file.
+```bash
+$ ansible -i hosts all -m ping -u ubuntu
+
+xxx.221.xxx.126 | SUCCESS => {
+    "changed": false,
+    "failed": false,
+    "ping": "pong"
+}
+54.xxx.147.xxx | SUCCESS => {
+    "changed": false,
+    "failed": false,
+    "ping": "pong"
+}
+54.251.188.xxx | SUCCESS => {
+    "changed": false,
+    "failed": false,
+    "ping": "pong"
+}
+```
+> Use option `-u ubuntu`. If username is not provided, then the username of the current session of your machine will be used for SSH execution
+
+:clap: Its Working !!!
+
+$$$$$$$Begin ------ Revisit this
+Post applying Terraform, verify EC2 instances that are created. Gather the public IPs of these instances and have them defined in hosts file for Ansible to spin docker swarm based on defined playbook.
+
+> This is the manual step which should be elimated. Have to come up with dynamic inventory.
+
+```
+[masters]
+54.XXX.159.XXX
+
+[workers]
+52.XXX.249.XXX
+XXX.254.XXX.136
+```
+$$$$$$$End ------
+
+***TODO***
+
 
 ## Testing WhoAmI with Traefik Reverse Proxy
+***TODO***
 
 ## Cleaning up the Instances after Test
 Upon completing the test, clean up the instances by running the below command
