@@ -25,4 +25,4 @@ sudo apt-get install -y docker-ce
 
 sudo service docker start
 
-sudo usermod -a -G docker $USER
+sudo gpasswd -a $USER docker

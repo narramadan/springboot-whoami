@@ -64,6 +64,16 @@ $ apt-get -y install ansible
 $ ansible
 ```
 
+For Ansible to work with AWS, we need to install `boto3` through `PIP`. Run the below commands to install them
+```
+$ apt-get -y install python-pip
+
+$ pip install boto
+```
+Notes
+> PIP - Package management system to install & manage software packages written in python
+> boto - AWS SDK for Python
+
 ## Setup EC2 Cluster using Terraform
 
 To test run `Who Am I` in Docker Swarm, we need to spin up 3 ec2 instances of which one is Manager and rest Workers. We spin these up using Terraform with the below configuration files
@@ -268,22 +278,24 @@ $ vi ansible.cfg
 host_key_checking = False
 ```
 
-* `Create hosts file` - To test run with some adhoc commands, provide IP address of few machines. Login to ec2 console and get the public IPs of the cluster nodes that are provisioned through Terraform. Add them to hosts in a folder from which ansible is being invoked and add the text as specified.
+* `Define Inventory file` - We need to connet to one or more machines to test run few adhoc commands. Lets define a static inventory file with public IPs of the cluster nodes that are provisioned through Terraform on AWS. Add them to hosts in a folder from which ansible is being invoked and add the text as specified.
 ```
 $ vi hosts
 
-[swarm-hosts]
+[manager]
 xxx.221.xxx.126
+
+[workers]
 54.xxx.147.xxx
 54.251.188.xxx
 
-[swarm-hosts:vars]
+[all:vars]
 ansible_python_interpreter=/usr/bin/python3
 ```
 > As there are more python instances installed on my machine, ansible is unable to predict which one to choose for execution. Setting `ansible_python_interpreter` will consider the specific python to use when executing ansible commands.
 
-* `Ping your nodes` - Run the below query to ping the nodes configured in host file.
-```bash
+* `Execute Adhoc Commands on your nodes` - Run the below query to execute some adhoc commands on your nodes that are configured in host file.
+```
 $ ansible -i hosts all -m ping -u ubuntu
 
 xxx.221.xxx.126 | SUCCESS => {
@@ -301,27 +313,189 @@ xxx.221.xxx.126 | SUCCESS => {
     "failed": false,
     "ping": "pong"
 }
+
+$ ansible -i hosts manager -m ping -u ubuntu
+xxx.221.xxx.126 | SUCCESS => {
+    "changed": false,
+    "failed": false,
+    "ping": "pong"
+}
 ```
 > Use option `-u ubuntu`. If username is not provided, then the username of the current session of your machine will be used for SSH execution
 
-:clap: Its Working !!!
-
-$$$$$$$Begin ------ Revisit this
-Post applying Terraform, verify EC2 instances that are created. Gather the public IPs of these instances and have them defined in hosts file for Ansible to spin docker swarm based on defined playbook.
-
-> This is the manual step which should be elimated. Have to come up with dynamic inventory.
-
 ```
-[masters]
+$  ansible -i hosts -u ubuntu all -a "/bin/echo hello"
+
+xxx.221.xxx.126 | SUCCESS | rc=0 >>
+hello
+
+54.xxx.147.xxx | SUCCESS | rc=0 >>
+hello
+
+54.251.188.xxx | SUCCESS | rc=0 >>
+hello
+```
+:clap: It Works !!!
+
+Few more adhoc commands before we proceed further..
+```
+// Identify text window's capabilities from $TERM env variable
+$ ansible -i hosts manager -m shell -a 'echo $TERM' -u ubuntu
+
+// Copy file from local server to remote server
+$ ansible -i hosts manager -m file -a"src=ec2.py dest=~" -u ubuntu
+xxx.221.xxx.126 | SUCCESS => {
+    "changed": true,
+    "failed": false,
+    "gid": 1000,
+    "group": "ubuntu",
+    "mode": "0775",
+    "owner": "ubuntu",
+    "path": "/home/ubuntu/ec2.py",
+    "size": 4096,
+    "state": "directory",
+    "uid": 1000
+}
+
+// Gathering facts
+$ ansible -i hosts manager -m setup -u ubuntu
+Will return complete setup details in json format - [`Gist`](https://gist.github.com/narramadan/84e3bbbaba03f00b07174f6e382876e5)
+
+-i inventory file to use
+-m module name
+-a module argunments
+-u username
+```
+Refer [`here`](http://docs.ansible.com/ansible/latest/intro_adhoc.html#introduction-to-ad-hoc-commands) for more Adhoc Command capabilities.
+
+###Support for Windows
+Ansible manages Linux/Unix machines using SSH. With recent versions of Ansible, it supports managing Windows machines using PowerShell Remoting.
+
+Refer [`here`](http://docs.ansible.com/ansible/latest/intro_windows.html) for more information.
+
+### Configuring Docker Swarm on EC2 with Ansible Static Inventory
+> Files for this section are available under `.\automation\static-inventory`
+
+Gather the public IPs of Manager and Worker instances that are initialized via terraform. Have them defined in `hosts` file for Ansible to spin docker swarm based on defined playbook. 
+```
+[manager]
 54.XXX.159.XXX
 
 [workers]
 52.XXX.249.XXX
 XXX.254.XXX.136
 ```
-$$$$$$$End ------
+> This is the manual step which should be elimated. Have to come up with dynamic inventory.
 
+Now its time to define our ansible `setup-docker-swarm.yml` which will initialize docker swarm cluster using the nodes that we registered in `hosts` file.
+
+```yml
+---
+
+  # Initialize Swarm on Manager node and get the join-token.
+  - name: Init Swarm Manager
+    hosts: manager
+    gather_facts: False
+    remote_user: ubuntu
+    become: true
+    become_method: sudo
+    tasks:
+      - name: Swarm Init
+        command: docker swarm init --advertise-addr {{ inventory_hostname }}
+
+      - name: Get Worker Token
+        command: docker swarm join-token worker -q
+        register: worker_token
+
+      - name: Show Worker Token
+        debug: var=worker_token.stdout
+
+      - name: Manager Token
+        command: docker swarm join-token manager -q
+        register: manager_token
+
+      - name: Show Manager Token
+        debug: var=manager_token.stdout
+
+  # Attach worker nodes using the join-token retrieved from manager node
+  - name: Join Swarm Cluster
+    hosts: workers
+    remote_user: ubuntu
+    gather_facts: False
+    become: true
+    become_method: sudo
+    vars:
+      token: "{{ hostvars[groups['manager'][0]]['worker_token']['stdout'] }}"
+      manager: "{{ hostvars[groups['manager'][0]]['inventory_hostname'] }}"
+    tasks:
+      - name: Join Swarm Cluster as a Worker
+        command: docker swarm join --token {{ token }} {{ manager }}:2377
+        register: worker
+
+      - name: Show Results
+        debug: var=worker.stdout
+
+      - name: Show Errors
+        debug: var=worker.stderr
+```
+
+Verify the syntax
+```
+$ ansible-playbook -i hosts --syntax-check setup-docker-swarm.yml
+```
+
+Run the below command to execute the playbook with the configured hosts.
+```
+$ ansible-playbook -i hosts setup-docker-swarm.yml
+
+You should see output with cows rendered using Cowsay along with debug messages written for variables and with final displaying the host IPs with their status
+
+54.XXX.159.XXX              : ok=3    changed=1    unreachable=0    failed=0
+52.XXX.249.XXX              : ok=5    changed=3    unreachable=0    failed=0
+XXX.254.XXX.136             : ok=3    changed=1    unreachable=0    failed=0
+```
+
+Connect to Manager instance and run the below command to verify if the swarm cluster is created with one node as leader and other two as workers
+```
+$ docker node ls
+
+ID                            HOSTNAME            STATUS              AVAILABILITY        MANAGER STATUS
+nnwred6096ii7flgonbhbe4r3     ip-172-31-16-250    Ready               Active
+jrs0xm6p0x2unn7pkmh86i04k     ip-172-31-22-39     Ready               Active
+w91hbw2a1jg8igjq0jeyoilw0 *   ip-172-31-30-69     Ready               Active              Leader
+```
+#### Deploy WhoAmI and Traefik services on Swarm Cluster using Ansible
 ***TODO***
+
+### Configuring Dynamic Inventory with EC2
+We need to setup dynamic inventory instead of popuating public IPs of spinned up ec2 instances in static inventory file as we create , stop and terminate instances as per our requirement.
+
+For Ansible to work with EC2 to setup dynamic inventory, we need to use `AWS EC2 external inventory script`. Refer [`here`](http://docs.ansible.com/ansible/latest/intro_dynamic_inventory.html) for more details.
+```
+$ wget https://raw.githubusercontent.com/ansible/ansible/devel/contrib/inventory/ec2.py
+$ wget https://raw.githubusercontent.com/ansible/ansible/devel/contrib/inventory/ec2.ini
+```
+
+These scripts when executed will invoke API calls to AWS and pull entire EC2 inventory details across all regions. To limit only to specific region, replace `all` with `ap-southeast-1` for key `regions` in `ec2.ini` file
+
+Test the script if the configuration is correct
+```
+// Make the python script executable
+$ chmod +x ec2.py
+
+$ ./ec2.py --list
+
+Outputs JSON with full inventory list available on EC2
+
+// ec2.py will cache results to avoid repeated API calls. To clear cache run below command
+$ ./ec2.py --refresh-cache
+```
+If you receive below error, uncomment `rds = False` and `elasticache = False` in ec2.ini file. Reason unknown :worried:
+```
+ERROR: "Forbidden", while: getting ElastiCache clustersroot@9da5f75a5a0b:~/ansible-test#
+```
+
+***TODO*** EC2 Dynamic Inventory
 
 
 ## Testing WhoAmI with Traefik Reverse Proxy
