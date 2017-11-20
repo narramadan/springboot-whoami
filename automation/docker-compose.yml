@@ -1,0 +1,41 @@
+version: '3'
+
+# Create network with overlay driver
+networks:
+  traefik-net:
+#    external: true
+     driver: overlay
+
+# Define services to be deployed
+services:
+  traefik:
+    image: traefik
+    command: --docker --docker.swarmmode --docker.domain=traefik --docker.watch --logLevel=DEBUG --web
+    deploy:      
+      placement:
+        constraints:
+          - "node.role==manager"
+    ports:
+      - 80:80
+      - 90:8080
+      - 443:443
+    volumes:
+      #- /var/run/docker.sock:/var/run/docker.sock
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - traefik-net
+
+  whoami:
+    image: narramadan/springboot-whoami
+    ports:
+      - 8080:8080
+    networks:
+      - traefik-net
+    deploy:
+      replicas: 3
+      labels:
+        - traefik.port=8080
+        - traefik.docker.network=whoamistack_traefik-net
+    

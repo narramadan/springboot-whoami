@@ -11,3 +11,8 @@ http://himsel.me/
 
 https://linuxacademy.com/howtoguides/posts/show/topic/13750-managing-docker-containers-with-ansible
 https://gist.github.com/clems4ever/f033bc3806891d9ef2449e471cbfeb2a
+
+Look into these
+------------------
+https://github.com/pascalandy/docker-stack-this/tree/master/traefik-manager-noacme
+https://github.com/containous/traefik/issues/766

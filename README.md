@@ -50,7 +50,7 @@ Accessing the application using https://localhost:8080 and https://localhost:809
 # Testing `Who Am I` with `Docker Swarm`
 To test springboot-whoami on Docker with Swarm Mode, provision 3 server instances with docker installed. Of the 3 server instances, one will act as Manager and the rest as Workers.
 
-**Provisioning Servers on AWS**
+### Provisioning Servers on AWS
 1. Launch `Ubuntu Server 16.04 LTS (HVM), SSD Volume Type - ami-67a6e604` with `t2.micro` for this test run.
 2. Choose 3 instances and proceed to `Security Group` configuration.
 3. Below ports must be added for the docker engines to communicate in swarm mode
@@ -58,7 +58,7 @@ To test springboot-whoami on Docker with Swarm Mode, provision 3 server instance
 * `TCP` and `UDP` port `7946` for communication among nodes
 * `UDP` port `4789` for overlay network traffic
 
-**Install Docker**
+### Install Docker
 Follow the [instructions](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-using-the-repository) provided to add docker repository to download and install docker.
 
 Update the apt package index.
@@ -81,7 +81,7 @@ Run below command to verify if docker is up and running
 $ docker info
 ```
 
-**Test run springboot-whoami**
+### Test run springboot-whoami
 Before proceeding to test whoami on swarm mode, verify the image by spinning a container on one of the server.
 
 ```
@@ -103,7 +103,7 @@ $ docker stop 3a
 $ docker rm 3af3
 ```
 
-**Creating Swarm Cluster**
+### Creating Swarm Cluster
 Identify the IP address of the instance which should run as Manager node. use command `ifconfig` to get the IP Address of the instance.
 
 Run the below command to initialize swarm cluster:
@@ -118,7 +118,7 @@ $ docker swarm join --token SWMTKN-1-0ayszwbf4fthuztfs127i9s5suc4lmkzjrz0p7vfrn5
 
 Running `docker node ls` will list down all the nodes and of the 3 nodes one will be marked as `Leader` under Manager Status.
 
-**Deploying WhoAmI service to Swarm**
+### Deploying WhoAmI service to Swarm
 
 Run the below command on the Manager node to deploy 3 whoamI image in the swarm. Manager node will distribute them evenly to all the three nodes
 ```
@@ -135,7 +135,7 @@ Run `docker service logs <ID>` on the Manager node to see if the service has sta
 
 Running `docker ps -a` on Manager, Worker 1 & Worker 2 nodes will show the list of running containers
 
-**Testing WhoAmI on created swarm service**
+### Testing WhoAmI on created swarm service
 
 [`Ingress`](https://en.wikipedia.org/wiki/Ingress_filtering) network is used whenever a swarm is initialized. This will do automatic load balancing among all the service nodes. When a request is sent to any of the node server on 8080, one of the node in the cluster will process the request and its container id is displayed in browser. 
 
@@ -147,7 +147,7 @@ External load balancer such as `nginx` or `traefik` can be configured to achive 
 
 More information on `ingress` and its routing mesh can be found [`here`](https://docs.docker.com/engine/swarm/ingress/)
 
-**Scale the Service Up or Down**
+### Scale the Service Up or Down
 
 Additional containers can be spinned up across the nodes by running the below command. This will spin up additional 3 replicas across the nodes as we already have 3 running.
 ```
@@ -163,7 +163,7 @@ vxleib8t4xqr        whoami              replicated          6/6                 
 
 To ***scale down*** the service, run `docker service scale whoami=3` to remove 3 containers evenly across the nodes.
 
-**Rolling image updates on swarm nodes**
+### Rolling image updates on swarm nodes
 Any code changes done to whoami should be rolled to all the swarm nodes. This can be achievable by running the below command on Manager node.
 
 ```
@@ -182,7 +182,7 @@ PS C:\Work> docker tag springboot-whoami narramadan/springboot-whoami
 PS C:\Work> docker push narramadan/springboot-whoami
 ```
 
-**Delete the Service**
+### Delete the Service
 
 Run the below command to remove the service from swarm. 
 
@@ -225,7 +225,7 @@ $ docker service update \
 * `--label traefik.port=8080` Specific traefik to connect to containers 8080 port
 * `--label traefik.docker.network=traefik-net` Set the docker network to use for connections to this container. With swarm mode, ingress network is attached by default and we are attaching traefik-net to the container. If both these exists and `traefik.docker.network` not set will result in `Gateway Timeout` error.
 
-**Deploy Traefik**
+### Deploy Traefik
 
 Refer to detailed notes using [`docker-machine`](https://docs.traefik.io/user-guide/swarm-mode/)
 
@@ -259,7 +259,7 @@ Run the below command to update logLevel for running traefik service
 $ docker service update --args --logLevel=DEBUG traefik
 ```
 
-**Testing WhoAmI with Traefik Reverse Proxy**
+### Testing WhoAmI with Traefik Reverse Proxy
 
 Accessing Traefik dashboard will display 3 frontends & 1 backend created.
 
@@ -275,9 +275,83 @@ Refreshing the browser will invoke each container in round-robin fashion and dis
 
 ![WhoAmiI Traefik Round-Robin](/resources/whoami-traefik-roundrobin.jpg?raw=true "WhoAmiI Traefik Round-Robin")
 
+# Provisioning WhoAmI and Traefik services on Swarm cluster through Docker Componse file
+
+We need to have a docker compose file which can provision both WhoAmI and Traefik services on the Swarm cluster. Supported version to use docker-compose.yml with swarm cluster should be `version: 3`
+
+**Note**
+
+Before we use docker compose to provision the services, we need to create our network manually. If we rely on docker-compose, network name created will have prefix appened with the name of the stack that we are deploying and thus WhoAmI & Traefik service link will not be established.
+
+Run the below command to create the network if it is not available
+```
+$ docker network create --driver=overlay traefik-net
+```
+
+```yaml
+version: '3'
+
+# Create network with overlay driver
+networks:
+  traefik-net:
+    external: true
+
+# Define services to be deployed
+services:
+  traefik:
+    image: traefik
+    command: --docker --docker.swarmmode --docker.domain=traefik --docker.watch --logLevel=DEBUG --web
+    deploy:      
+      placement:
+        constraints:
+          - "node.role==manager"
+    ports:
+      - 80:80
+      - 90:8080
+      - 443:443
+    volumes:
+      #- /var/run/docker.sock:/var/run/docker.sock
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - traefik-net
+
+  whoami:
+    image: narramadan/springboot-whoami
+    ports:
+      - 8080:8080
+    networks:
+      - traefik-net
+    deploy:
+      replicas: 3
+      labels:
+        - traefik.port=8080
+        - traefik.docker.network=whoamistack_traefik-net
+```
+
+Run the below command to test run the above docker-compose.yml
+```
+$ docker stack deploy --compose-file docker-compose.yml whoamistack
+
+$ docker service ls
+ID                  NAME                  MODE                REPLICAS            IMAGE                                 PORTS
+qy7z5g91eeji        whoamistack_traefik   replicated          1/1                 traefik:latest                        *:80->80/tcp,*:90->8080/tcp,*:443->443/tcp
+ngg15mam6bkt        whoamistack_whoami    replicated          3/3                 narramadan/springboot-whoami:latest   *:8080->8080/tcp
+```
+
 **Lets Encrypt Integration**
 ***TODO***
 
 # Automating `Who Am I` with `Traefik Reverse Proxy` on `Docker Swarm` with `Terraform` & `Ansible`
 
 Readme available under `automation` folder
+
+# Backlog
+
+Below are few this which are still work in progress. Have to pick these
+
+1. Lets Encrypt Integration with Traefik
+2. Make docker-compse.yml work to provision Traefik and WhoAmI service without hardcoding project name when running `docker stack deploy --compose-file.yml whoamistack`
+3. Invoke docker-compose.yml from Ansible playbook to provision Traefik and WhoAmI service
+4. EC2 Dynamic Inventory instead of hardcoding created manager and worker IP address in hosts file

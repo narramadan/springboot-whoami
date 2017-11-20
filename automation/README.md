@@ -6,6 +6,16 @@ Sought inspiration for this section from [`here`](http://www.labouardy.com/setup
 
 `Terraform` is a tool to provision infrastructure and `Ansible` is an agentless configuration management tool. To automate the deployment setup done under **Testing `Who Am I` with `Docker Swarm`** section, we mix these both tools to provision ec2 manager and node instances with docker installed on them and create Telerik and Who Am I services on Docker Swarm.
 
+**Why not use Ansible to provision AWS instances ???**
+
+Below is the general opinion view from few experts over different forums.
+
+`Terraform` sets up Infrastructure. In AWS, you can also use Cloudformation for this. Terraform is IaC (Infrastructure as Code). For example, it will describe network topology, different AWS services, EC2 instance sizes, AMIs, VPCs, RDS instances, Lambda functions, etc.
+
+`Ansible` configures servers. It's CM (Configuration Management). It defines what's on the servers. Mongo, Tomcat, Apache, etc. You can compare Ansible to Chef or Puppet
+
+***Use both in tandem...***
+
 # Setting up `Terraform` and `Ansible`
 Both `Terraform` and `Ansible` can be installed and configured on developer machine. As I use Windows 10 PC, I prefer to have this setup run on docker ubuntu image.
 
@@ -25,7 +35,7 @@ PS C:\> docker port terraform-ansible 22
 // SSH to root@localhost on 32768 with password root
 ```
 
-###Run the below commands to install Terraform
+### Run the below commands to install Terraform
 ```
 // Get updates and install unzip
 $ apt-get update
@@ -52,13 +62,16 @@ $ terraform
 Notes
 > `~/opt` is a directory for installing unbundled packages, each one in its own subdirectory
 
-###Run the below commands to install Ansible
+### Run the below commands to install Ansible
 ```
 $ apt-get update
 $ apt-get -y install software-properties-common
 $ apt-add-repository -y ppa:ansible/ansible
 $ apt-get update
 $ apt-get -y install ansible
+
+// Use Python 3 by default
+$ alias python=python3
 
 // Verify if ansible is installed correctly
 $ ansible
@@ -78,7 +91,7 @@ Notes
 
 To test run `Who Am I` in Docker Swarm, we need to spin up 3 ec2 instances of which one is Manager and rest Workers. We spin these up using Terraform with the below configuration files
 
-###Generate Public & Private Key for AWS**
+### Generate Public & Private Key for AWS**
 Create public & private SSh keys
 ```
 $ mkdir ~/.ssh
@@ -368,7 +381,7 @@ Will return complete setup details in json format - [`Gist`](https://gist.github
 ```
 Refer [`here`](http://docs.ansible.com/ansible/latest/intro_adhoc.html#introduction-to-ad-hoc-commands) for more Adhoc Command capabilities.
 
-###Support for Windows
+### Support for Windows
 Ansible manages Linux/Unix machines using SSH. With recent versions of Ansible, it supports managing Windows machines using PowerShell Remoting.
 
 Refer [`here`](http://docs.ansible.com/ansible/latest/intro_windows.html) for more information.
@@ -387,7 +400,7 @@ XXX.254.XXX.136
 ```
 > This is the manual step which should be elimated. Have to come up with dynamic inventory.
 
-Now its time to define our ansible `setup-docker-swarm.yml` which will initialize docker swarm cluster using the nodes that we registered in `hosts` file.
+Now its time to define our ansible `playbook.yml` which will initialize docker swarm cluster using the nodes that we registered in `hosts` file.
 
 ```yml
 ---
@@ -402,6 +415,7 @@ Now its time to define our ansible `setup-docker-swarm.yml` which will initializ
     tasks:
       - name: Swarm Init
         command: docker swarm init --advertise-addr {{ inventory_hostname }}
+        ignore_errors: yes
 
       - name: Get Worker Token
         command: docker swarm join-token worker -q
@@ -417,6 +431,10 @@ Now its time to define our ansible `setup-docker-swarm.yml` which will initializ
       - name: Show Manager Token
         debug: var=manager_token.stdout
 
+      - name: Create Network
+        command: docker network create --driver=overlay traefik-net
+        ignore_errors: yes
+
   # Attach worker nodes using the join-token retrieved from manager node
   - name: Join Swarm Cluster
     hosts: workers
@@ -431,6 +449,7 @@ Now its time to define our ansible `setup-docker-swarm.yml` which will initializ
       - name: Join Swarm Cluster as a Worker
         command: docker swarm join --token {{ token }} {{ manager }}:2377
         register: worker
+        ignore_errors: yes
 
       - name: Show Results
         debug: var=worker.stdout
@@ -441,12 +460,12 @@ Now its time to define our ansible `setup-docker-swarm.yml` which will initializ
 
 Verify the syntax
 ```
-$ ansible-playbook -i hosts --syntax-check setup-docker-swarm.yml
+$ ansible-playbook -i hosts --syntax-check playbook.yml
 ```
 
 Run the below command to execute the playbook with the configured hosts.
 ```
-$ ansible-playbook -i hosts setup-docker-swarm.yml
+$ ansible-playbook -i hosts playbook.yml
 
 You should see output with cows rendered using Cowsay along with debug messages written for variables and with final displaying the host IPs with their status
 
@@ -465,7 +484,48 @@ jrs0xm6p0x2unn7pkmh86i04k     ip-172-31-22-39     Ready               Active
 w91hbw2a1jg8igjq0jeyoilw0 *   ip-172-31-30-69     Ready               Active              Leader
 ```
 #### Deploy WhoAmI and Traefik services on Swarm Cluster using Ansible
-***TODO***
+Copy the below lines to `playbook.yml` to include service deploy task and use `docker-compose.yml` to provision WhoAmI and Traefik services
+
+```yml
+# Run docker service commands to start traefik and whoami services on swarm cluster
+  - name: Deploy Services
+    hosts: manager
+    remote_user: ubuntu
+    gather_facts: False
+    become: true
+    become_method: sudo
+    tasks:
+      - name: Deploy Traefik Service
+        command: docker service create \
+                  --name traefik \
+                  --constraint=node.role==manager \
+                  --publish 80:80 --publish 90:8080 \
+                  --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
+                  --network traefik-net \
+                  traefik \
+                  --docker \
+                  --docker.swarmmode \
+                  --docker.domain=traefik \
+                  --docker.watch \
+                  --logLevel=DEBUG \
+                  --web
+
+      - name: Deploy WhoAmI Service
+        command: docker service create \
+                  --replicas 3 \
+                  --name whoami \
+                  --label traefik.port=8080 \
+                  --label traefik.docker.network=traefik-net \
+                  --network traefik-net \
+                  --publish 8080:8080 \
+                  narramadan/springboot-whoami
+```
+
+Run the below command to execute the playbook with the configured hosts and service provisioning
+```
+$ ansible-playbook -i hosts playbook.yml
+
+**TODO** - Only manager node whoami container is working through Traefik. Getting `Gateway Error` for worknode whoami containers
 
 ### Configuring Dynamic Inventory with EC2
 We need to setup dynamic inventory instead of popuating public IPs of spinned up ec2 instances in static inventory file as we create , stop and terminate instances as per our requirement.
@@ -509,3 +569,13 @@ $ terraform destroy
 Terraform will terminate spinned ec2 instances, Storage Groups,Key Pairs and other associations as per plan defined
 
 **Gist** - https://gist.github.com/narramadan/2d623a5a2d322573fc9e42f1bb2014ea
+
+# Backlog
+
+**Notes - When using Ansible with docker-service plugins**
+Before invoking the playbook.yml, we need to install `docker.py` and 'docker-compose.py`
+```
+$ pip install 'docker-py>=1.7.0'
+
+$ pip install 'docker-compose>=1.7.0'
+```

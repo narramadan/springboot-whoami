@@ -4,3 +4,6 @@
 [workers]
 xxx.221.xxx.230
 54.xxx.129.xxx
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
