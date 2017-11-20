@@ -524,6 +524,7 @@ Copy the below lines to `playbook.yml` to include service deploy task and use `d
 Run the below command to execute the playbook with the configured hosts and service provisioning
 ```
 $ ansible-playbook -i hosts playbook.yml
+```
 
 **TODO** - Only manager node whoami container is working through Traefik. Getting `Gateway Error` for worknode whoami containers
 
